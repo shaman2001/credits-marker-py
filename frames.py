@@ -6,7 +6,6 @@ import numpy as np
 from tqdm import tqdm
 from termcolor import colored, cprint
 import matplotlib.pyplot as plt
-import matplotlib.dates as dates
 import matplotlib.ticker as ticker
 
 fps = 25
@@ -52,7 +51,8 @@ def compare_episodes(base_ep, comp_ep, do_print=True):
             match_in_sec = 0
         pbar.update(1)
     pbar.close()
-    return result
+    res_title_out = 'Result of frame-by-frame episodes comparison: <{}> & <{}>'.format(base_ep['title'], comp_ep['title'])
+    return result, res_title_out
 
 
 def get_index(str_array, str_item, start=None, end=None):
@@ -124,14 +124,36 @@ def color_compare(string1, string2, color='red'):
     return result, n_diff
 
 
-def format_time(array):
-    result = []
-    for item in array:
-        result.append(str(timedelta(seconds=item)).split(".")[0])
-    return result
+def format_time(x, pos):
+    str_repr = str(timedelta(seconds=x)).split('.')[0].split(':')[1:]
+    return ':'.join(str_repr)
 
 
-def build_plot(data):
+def format_ax(ax, start, end):
+    # ax.set_xlabel('time (s)')
+    ax.set_ylabel('% of matches')
+    ax.tick_params(axis='x',
+                   direction='in',
+                   labelcolor='r',
+                   labelsize=5,
+                   width=1,
+                   labelrotation=90,
+                   grid_linestyle='dotted',
+                   grid_alpha=0.5
+                   )
+    ax.grid(True)
+    ax.set_ylim(top=100)
+    ax.set_xlim(left=start, right=end)
+    x_axis = ax.get_xaxis()
+    x_axis.set_major_locator(ticker.MaxNLocator(nbins=100, steps=[3, 5, 6]))
+    x_axis.set_major_formatter(ticker.FuncFormatter(func=format_time))
+    y_axis = ax.get_yaxis()
+    y_axis.set_major_locator(ticker.MaxNLocator(nbins=3))
+    y_axis.set_major_formatter(ticker.PercentFormatter())
+    # cur_axe.get_xaxis().set_major_formatter(dates.DateFormatter("%b %Y"))
+
+
+def build_plot(data, parts_num=5, title=''):
 
     def add_titlebox(ax, text):
         ax.text(.55, .8, text,
@@ -140,42 +162,34 @@ def build_plot(data):
                 bbox=dict(facecolor='white', alpha=0.6),
                 fontsize=6)
         return ax
-    plt.interactive(1)
-    fig, ax = plt.subplots(nrows=5, ncols=2, figsize=(15, 10))
+    from math import ceil
+    splt_dur = ceil(len(data)/parts_num)
+    plt.interactive(True)
+    fig, ax = plt.subplots(nrows=parts_num, ncols=1, figsize=(15, 8))
+    fig.suptitle(title)
     my_axes = ax.flatten()
-    fig.subplots_adjust(hspace=0.5)
+    # fig.subplots_adjust(hspace=0.1)
     i = 0
-
     for cur_axe in my_axes:
-        start = i * 10000 // fps
-        end = (i + 1) * 10000 // fps if (i + 1) * 10000 // fps <= len(data) else len(data)
+        start = i * splt_dur
+        end = (i + 1) * splt_dur if (i + 1) * splt_dur <= len(data) else len(data)
         add_titlebox(cur_axe, 'Start frame:{:d}, end frame:{:d}'.format(start * fps, end * fps))
         cur_dur_range = range(start, end)
         cur_graph_range = [data[k] for k in cur_dur_range]
-
-
-        # cur_axe.vlines(np.arange(start, end, 1), ymin=0, ymax=cur_graph_range, colors='g', linestyles='solid')
-        cur_axe.plot(np.arange(start, end, 1), cur_graph_range, '.-', linewidth=1, markersize=2)
-        # cur_axe.fill_between(cur_dur_range, cur_graph_range, facecolor='blue', alpha=0.5)
-        cur_axe.set_xlabel('time')
-        cur_axe.set_ylabel('% of matches')
-        # for tick in cur_axe.xaxis.get_minor_ticks():
-        #     tick.tick1line.set_markersize(0)
-        #     tick.tick2line.set_markersize(0)
-        #     tick.label1.set_horizontalalignment('center')
-
-        cur_axe.grid(True)
-        cur_axe.set_ylim(top=100)
-        # fig.autofmt_xdate()
+        cur_axe.plot(np.arange(start, end, 1), cur_graph_range, 'o-', linewidth=1, markersize=2)
+        format_ax(cur_axe, start, end)
         if end == len(data):
             break
         i += 1
+    fig.tight_layout()
     plt.show()
+    # input()
+    plt.close(fig)
 
 
 baseData = read_json("./Game_of_Thrones_S07E02.json")
 compData = read_json("./Game_of_Thrones_S07E03.json")
 
-cmp_res = compare_episodes(baseData, compData, False)
+cmp_res, res_title = compare_episodes(baseData, compData, False)
 
-build_plot(cmp_res)
+build_plot(cmp_res, title=res_title)
