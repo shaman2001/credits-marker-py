@@ -8,7 +8,10 @@ from termcolor import colored, cprint
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+from const import Const
+
 fps = 25
+input_dir = 'input/'
 
 
 def read_json(path):
@@ -17,27 +20,28 @@ def read_json(path):
         return data
 
 
-def compare_episodes(base_ep, comp_ep, do_print=True):
+def compare_episodes(base_ep, comp_ep, print_frames=True):
     print('Comparing episodes: base episode: {}, comparing episode: {}'.format(base_ep['title'], comp_ep['title']))
     mismatch_counter = 0
     prev_match_ind = 0
     match_in_sec = 0
     result = {}
-    pbar = tqdm(base_ep['frames'], unit='frames', mininterval=1.0)
-    pbar.set_description_str('Processing frames progress')
+    if not print_frames:
+        pbar = tqdm(base_ep['frames'], unit='frames', mininterval=1.0)
+        pbar.set_description_str('Processing frames progress')
     comp_len = len(comp_ep['frames'])
     for i, frm in enumerate(base_ep['frames']):
         start, end = calc_range(comp_len, i)
         comp_frm_ind = get_index(comp_ep['frames'], frm, start, end)
         if comp_frm_ind >= 0:
-            if do_print:
+            if print_frames:
                 print('{:s} {:s} - matched frame in comp episode {:s}'.format(dur_format(i), frm, dur_format(comp_frm_ind)))
                 prev_match_ind = comp_frm_ind
                 if mismatch_counter > 0:
                     mismatch_counter = 0
             match_in_sec += 1
         else:
-            if do_print:
+            if print_frames:
                 if mismatch_counter < 5:
                     m_frame = comp_ep['frames'][prev_match_ind + mismatch_counter]
                     frm_diff, count = color_compare(frm, m_frame, 'red')
@@ -49,7 +53,8 @@ def compare_episodes(base_ep, comp_ep, do_print=True):
         if (i + 1) % fps == 0:
             result[i//fps] = match_in_sec*100//fps
             match_in_sec = 0
-        pbar.update(1)
+        if not print_frames:
+            pbar.update(1)
     pbar.close()
     res_title_out = 'Result of frame-by-frame episodes comparison: <{}> & <{}>'.format(base_ep['title'], comp_ep['title'])
     return result, res_title_out
@@ -182,14 +187,14 @@ def build_plot(data, parts_num=5, title=''):
             break
         i += 1
     fig.tight_layout()
-    plt.show()
+    plt.show(block=True)
     # input()
     plt.close(fig)
 
 
-baseData = read_json("./Game_of_Thrones_S07E02.json")
-compData = read_json("./Game_of_Thrones_S07E03.json")
+baseData = read_json(Const.input_dir + "Game_of_Thrones_S07E02.json")
+compData = read_json(Const.input_dir + "Game_of_Thrones_S07E03.json")
 
-cmp_res, res_title = compare_episodes(baseData, compData, False)
+cmp_res, res_title = compare_episodes(baseData, compData, True)
 
-build_plot(cmp_res, title=res_title)
+# build_plot(cmp_res, title=res_title)
