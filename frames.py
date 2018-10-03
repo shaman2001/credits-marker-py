@@ -53,7 +53,7 @@ def compare_frm_arrays(base_arr, comp_arr, brief):
             if mismatch_counter > 0:
                 mismatch_counter = 0
             log = '{:s} {:s} - matched frame in comp episode {:s}'.format(dur_format(i), frm, dur_format(comp_frm_ind))
-        elif mismatch_counter < mismatch_limit:
+        elif match_in_sec > 0 and mismatch_counter < mismatch_limit:
             mismatch_counter += 1
             if prev_match_ind + mismatch_counter in comp_map.keys():
                 m_frame = comp_map[prev_match_ind + mismatch_counter]
@@ -86,15 +86,8 @@ def get_index(str_map, str_item, start=None, end=None):
     if end is None:
         end = len(str_map)
     try:
-        # ind = list(str_map.keys())[list(str_map.values()).index(str_item)]
-        ind = str_map.keys()[str_map.values().index(str_item)]
+        ind = list(str_map.keys())[list(str_map.values()).index(str_item)]
         return ind if ind in range(start, end) else -1
-        # if ind_list
-        # if len(ind_list) == 1:
-        #     return ind_list[0]
-        # else:
-        #     return first(ind_list, condition=lambda x: x in range(start, end))
-        # return str_array.index(str_item, start, end)
     except ValueError:
         return -1
 
