@@ -1,17 +1,19 @@
 import json
-import difflib
 from datetime import timedelta
 import numpy as np
 
 from tqdm import tqdm
-from termcolor import colored, cprint
+from termcolor import colored
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
 from const import Const
 
-fps = 25
-input_dir = 'input/'
+fps = Const.FPS
+input_dir = Const.INPUT_DIR
+seek_factor = Const.SEEK_FACTOR
+mismatch_limit = 5
+part_match_range = range(5, 9)
 
 
 def read_json(path):
@@ -20,101 +22,101 @@ def read_json(path):
         return data
 
 
-def compare_episodes(base_ep, comp_ep, print_frames=True):
+def compare_episodes(base_ep, comp_ep, brief):
     print('Comparing episodes: base episode: {}, comparing episode: {}'.format(base_ep['title'], comp_ep['title']))
-    mismatch_counter = 0
-    prev_match_ind = 0
-    match_in_sec = 0
-    result = {}
-    if not print_frames:
-        pbar = tqdm(base_ep['frames'], unit='frames', mininterval=1.0)
-        pbar.set_description_str('Processing frames progress')
-    comp_len = len(comp_ep['frames'])
-    for i, frm in enumerate(base_ep['frames']):
-        start, end = calc_range(comp_len, i)
-        comp_frm_ind = get_index(comp_ep['frames'], frm, start, end)
-        if comp_frm_ind >= 0:
-            if print_frames:
-                print('{:s} {:s} - matched frame in comp episode {:s}'.format(dur_format(i), frm, dur_format(comp_frm_ind)))
-                prev_match_ind = comp_frm_ind
-                if mismatch_counter > 0:
-                    mismatch_counter = 0
-            match_in_sec += 1
-        else:
-            if print_frames:
-                if mismatch_counter < 5:
-                    m_frame = comp_ep['frames'][prev_match_ind + mismatch_counter]
-                    frm_diff, count = color_compare(frm, m_frame, 'red')
-                    # print('{:s} {:s} - NOT matched {}. Diff {}'.format(dur_format(i), frm, m_frame, frm_diff))
-                    print('{:s} {:s} - NOT matched {}. {} symbols'.format(dur_format(i), frm, frm_diff, count))
-                else:
-                    print('{:s} {:s} - NOT matched'.format(dur_format(i), frm))
-                mismatch_counter += 1
-        if (i + 1) % fps == 0:
-            result[i//fps] = match_in_sec*100//fps
-            match_in_sec = 0
-        if not print_frames:
-            pbar.update(1)
-    pbar.close()
+    base_arr = base_ep['frames']
+    comp_arr = comp_ep['frames']
+    result = compare_frm_arrays(base_arr, comp_arr, brief)
     res_title_out = 'Result of frame-by-frame episodes comparison: <{}> & <{}>'.format(base_ep['title'], comp_ep['title'])
     return result, res_title_out
 
 
-def get_index(str_array, str_item, start=None, end=None):
+def compare_frm_arrays(base_arr, comp_arr, brief):
+    result = {}
+    pbar = None
+    comp_map = conv_list_to_dict(comp_arr)
+    if brief:
+        pbar = tqdm(base_arr, unit='frames', mininterval=1.0)
+        pbar.set_description_str('Processing frames progress')
+    mismatch_counter = 0
+    prev_match_ind = 0
+    match_in_sec = 0
+    comp_len = len(comp_arr)
+    log = ''
+    for i, frm in enumerate(base_arr):
+        start, end = calc_range(comp_len, i, seek_factor)
+        comp_frm_ind = get_index(comp_map, frm, start, end)
+        if comp_frm_ind != -1:
+            match_in_sec += 1
+            del comp_map[comp_frm_ind]
+            prev_match_ind = comp_frm_ind
+            if mismatch_counter > 0:
+                mismatch_counter = 0
+            log = '{:s} {:s} - matched frame in comp episode {:s}'.format(dur_format(i), frm, dur_format(comp_frm_ind))
+        elif mismatch_counter < mismatch_limit:
+            mismatch_counter += 1
+            if prev_match_ind + mismatch_counter in comp_map.keys():
+                m_frame = comp_map[prev_match_ind + mismatch_counter]
+                frm_diff, dif_amount = color_compare(frm, m_frame, 'red')
+                if dif_amount < part_match_range.start:
+                    match_in_sec += 1
+                    del comp_map[prev_match_ind + mismatch_counter]
+                    log = '{:s} {:s} - almost matched {}. {} symbols'.format(dur_format(i), frm, frm_diff, dif_amount)
+                elif dif_amount in part_match_range or dif_amount >= part_match_range.stop:
+                    log = '{:s} {:s} - NOT matched {}. {} symbols'.format(dur_format(i), frm, frm_diff, dif_amount)
+                    mismatch_counter += 1
+        else:
+            mismatch_counter += 1
+            log = '{:s} {:s} - NOT matched'.format(dur_format(i), frm)
+        if (i + 1) % fps == 0:
+            result[i//fps] = match_in_sec * 100 // fps
+            match_in_sec = 0
+        if brief and pbar is not None:
+            pbar.update(1)
+        elif not brief:
+            print(log)
+    if pbar is not None:
+        pbar.close()
+    return result
+
+
+def get_index(str_map, str_item, start=None, end=None):
     if start is None:
         start = 0
     if end is None:
-        end = len(str_array)
-
+        end = len(str_map)
     try:
-        return str_array.index(str_item, start, end)
+        # ind = list(str_map.keys())[list(str_map.values()).index(str_item)]
+        ind = str_map.keys()[str_map.values().index(str_item)]
+        return ind if ind in range(start, end) else -1
+        # if ind_list
+        # if len(ind_list) == 1:
+        #     return ind_list[0]
+        # else:
+        #     return first(ind_list, condition=lambda x: x in range(start, end))
+        # return str_array.index(str_item, start, end)
     except ValueError:
         return -1
 
 
-def calc_range(total_len, ind):
-    num = ind - total_len//6
+def first(iterable, condition=lambda x: True):
+    return next((x for x in iterable if condition(x)), -1)
+
+
+def conv_list_to_dict(hash_list):
+    return {i: hash_list[i] for i in range(0, len(hash_list))}
+
+
+def calc_range(total_len, ind, seek_fact):
+    num = ind - total_len//seek_fact
     start = 0 if num < 0 else num
-    num = ind + total_len//6
+    num = ind + total_len//seek_fact
     end = num if num < total_len else total_len
     return start, end
 
 
 def dur_format(frame_num):
     return str(timedelta(seconds=frame_num/fps)).split(".")[0]
-
-
-def inline_diff(a, b):
-    matcher = difflib.SequenceMatcher(None, a, b)
-
-    def process_tag(tag, i1, i2, j1, j2):
-        if tag == 'replace':
-            return '{' + matcher.a[i1:i2] + ' -> ' + matcher.b[j1:j2] + '}'
-        if tag == 'delete':
-            return '{- ' + matcher.a[i1:i2] + '}'
-        if tag == 'equal':
-            return matcher.a[i1:i2]
-        if tag == 'insert':
-            return '{+ ' + matcher.b[j1:j2] + '}'
-        assert False, "Unknown tag %r" % tag
-    return ''.join(process_tag(*t) for t in matcher.get_opcodes())
-
-
-def color_diff(a, b):
-    matcher = difflib.SequenceMatcher(None, a, b)
-
-    def process_tag(tag, i1, i2, j1, j2):
-        if tag == 'replace':
-            return colored(matcher.b[j1:j2], 'red', attrs=['reverse'])
-            # return '{' + matcher.a[i1:i2] + ' -> ' + matcher.b[j1:j2] + '}'
-        if tag == 'delete':
-            return '{- ' + matcher.a[i1:i2] + '}'
-        if tag == 'equal':
-            return matcher.a[i1:i2]
-        if tag == 'insert':
-            return '{+ ' + matcher.b[j1:j2] + '}'
-        assert False, "Unknown tag %r" % tag
-    return ''.join(process_tag(*t) for t in matcher.get_opcodes())
 
 
 def color_compare(string1, string2, color='red'):
@@ -153,9 +155,8 @@ def format_ax(ax, start, end):
     x_axis.set_major_locator(ticker.MaxNLocator(nbins=100, steps=[3, 5, 6]))
     x_axis.set_major_formatter(ticker.FuncFormatter(func=format_time))
     y_axis = ax.get_yaxis()
-    y_axis.set_major_locator(ticker.MaxNLocator(nbins=3))
+    y_axis.set_major_locator(ticker.MaxNLocator(nbins=4))
     y_axis.set_major_formatter(ticker.PercentFormatter())
-    # cur_axe.get_xaxis().set_major_formatter(dates.DateFormatter("%b %Y"))
 
 
 def build_plot(data, parts_num=5, title=''):
@@ -173,7 +174,6 @@ def build_plot(data, parts_num=5, title=''):
     fig, ax = plt.subplots(nrows=parts_num, ncols=1, figsize=(15, 8))
     fig.suptitle(title)
     my_axes = ax.flatten()
-    # fig.subplots_adjust(hspace=0.1)
     i = 0
     for cur_axe in my_axes:
         start = i * splt_dur
@@ -188,13 +188,12 @@ def build_plot(data, parts_num=5, title=''):
         i += 1
     fig.tight_layout()
     plt.show(block=True)
-    # input()
     plt.close(fig)
 
 
-baseData = read_json(Const.input_dir + "Game_of_Thrones_S07E02.json")
-compData = read_json(Const.input_dir + "Game_of_Thrones_S07E03.json")
+baseData = read_json(Const.INPUT_DIR + "Game_of_Thrones_S07E01.json")
+compData = read_json(Const.INPUT_DIR + "Game_of_Thrones_S07E02.json")
 
-cmp_res, res_title = compare_episodes(baseData, compData, True)
+cmp_res, res_title = compare_episodes(baseData, compData, brief=True)
 
-# build_plot(cmp_res, title=res_title)
+build_plot(cmp_res, title=res_title)
