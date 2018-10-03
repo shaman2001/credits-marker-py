@@ -15,6 +15,6 @@ class MetaConst(object, metaclass=MetaConstType):
 
 
 class Const(MetaConst):
-    input_dir = 'input/'
-    fps = 25
-
+    INPUT_DIR = 'input/'
+    FPS = 25
+    SEEK_FACTOR = 6
