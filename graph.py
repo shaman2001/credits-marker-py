@@ -1,47 +1,66 @@
+from datetime import timedelta
 import matplotlib.pyplot as plt
+from matplotlib import ticker
 import numpy as np
-
-from io import BytesIO
-import tarfile
-from urllib.request import urlopen
-
-url = 'http://www.dcc.fc.up.pt/~ltorgo/Regression/cal_housing.tgz'
-b = BytesIO(urlopen(url).read())
-fpath = 'CaliforniaHousing/cal_housing.data'
-
-with tarfile.open(mode='r', fileobj=b) as archive:
-    housing = np.loadtxt(archive.extractfile(fpath), delimiter=',')
-
-y = housing[:, -1]
-pop, age = housing[:, [4, 7]].T
-
-def add_titlebox(ax, text):
-    ax.text(.55, .8, text,
-            horizontalalignment='center',
-            transform=ax.transAxes,
-            bbox=dict(facecolor='white', alpha=0.6),
-            fontsize=12.5)
-    return ax
+from const import Const
 
 
-gridsize = (3, 2)
-fig = plt.figure(figsize=(12, 8))
-ax1 = plt.subplot2grid(gridsize, (0, 0), colspan=2, rowspan=2)
-ax2 = plt.subplot2grid(gridsize, (2, 0))
-ax3 = plt.subplot2grid(gridsize, (2, 1))
+def format_time(x, pos):
+    str_repr = str(timedelta(seconds=x)).split('.')[0].split(':')[1:]
+    return ':'.join(str_repr)
 
-plt.show()
 
-ax1.set_title(
-    'Home value as a function of home age & area population',
-    fontsize=14
-)
+def format_ax(ax, start, end):
+    ax.set_ylabel('% of matches')
+    ax.tick_params(axis='x',
+                   direction='in',
+                   labelcolor='r',
+                   labelsize=5,
+                   width=1,
+                   labelrotation=90,
+                   grid_linestyle='dotted',
+                   grid_alpha=0.5
+                   )
+    ax.grid(True)
+    ax.set_ylim(top=100)
+    ax.set_xlim(left=start, right=end)
+    x_axis = ax.get_xaxis()
+    x_axis.set_major_locator(ticker.MaxNLocator(nbins=200, steps=[2, 3, 5, 6]))
+    x_axis.set_major_formatter(ticker.FuncFormatter(func=format_time))
+    y_axis = ax.get_yaxis()
+    y_axis.set_major_locator(ticker.MaxNLocator(nbins=5))
+    y_axis.set_major_formatter(ticker.PercentFormatter())
 
-sctr = ax1.scatter(x=age, y=pop, c=y, cmap='RdYlGn')
-plt.colorbar(sctr, ax=ax1, format='$%d')
-ax1.set_yscale('log')
-ax2.hist(age, bins='auto')
-ax3.hist(pop, bins='auto', log=True)
 
-add_titlebox(ax2, 'Histogram: home age')
-add_titlebox(ax3, 'Histogram: area population (log scl.)')
+def build_plot(data, parts_num=5, title='', do_block=True):
+
+    def add_titlebox(ax, text):
+        ax.text(.55, .8, text,
+                horizontalalignment='center',
+                transform=ax.transAxes,
+                bbox=dict(facecolor='white', alpha=0.6),
+                fontsize=6)
+        return ax
+    from math import ceil
+    splt_dur = ceil(len(data)/parts_num)
+    plt.interactive(True)
+    fig, ax = plt.subplots(nrows=parts_num, ncols=1, figsize=(15, 8))
+    fig.suptitle(title)
+    my_axes = ax.flatten()
+    i = 0
+    for cur_axe in my_axes:
+        start = i * splt_dur
+        end = (i + 1) * splt_dur if (i + 1) * splt_dur <= len(data) else len(data)
+        add_titlebox(cur_axe, 'Start frame:{:d}, end frame:{:d}'.format(start * Const.FPS, end * Const.FPS))
+        cur_dur_range = range(start, end)
+        cur_graph_range = [data[k] for k in cur_dur_range]
+        cur_axe.plot(np.arange(start, end, 1), cur_graph_range, 'o-', linewidth=1, markersize=1)
+        format_ax(cur_axe, start, end)
+        if end == len(data):
+            break
+        i += 1
+    fig.tight_layout()
+    plt.show(block=do_block)
+    fig.savefig('output/comparison_result.png')
+    plt.close(fig)
+
