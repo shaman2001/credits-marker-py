@@ -18,3 +18,6 @@ class Const(MetaConst):
     INPUT_DIR = 'input/'
     FPS = 25
     SEEK_FACTOR = 6
+    MISMATCH_LIMIT = 5
+    PART_MATCH_LIMIT = 25
+    PART_MATCH_RANGE = range(5, 9)
