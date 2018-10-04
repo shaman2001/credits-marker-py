@@ -2,7 +2,7 @@ import numpy as np
 from tqdm import tqdm
 from const import Const
 from graph import build_plot
-from helper import read_json, dur_format, get_index, calc_range, color_compare, sec2time_format, get_blocks
+from helper import read_json, dur_format, get_index, calc_range, color_compare, sec2time_format, get_blocks, smooth_data
 
 
 def compare_episodes(base_ep, comp_ep, brief):
@@ -19,11 +19,12 @@ def compare_frm_arrays(base_arr, comp_arr, brief):
     part_match_counter = 0
     prev_match_ind = -1
     match_in_sec = 0
-    result = {}
+    result = list()
     log = ''
     pbar = None
     if brief:
         pbar = tqdm(base_arr, unit='frames', mininterval=1.0)
+        pbar.external_write_mode()
         pbar.set_description_str('Processing frames progress')
     comp_len = len(comp_arr)
     for i, frm in enumerate(base_arr):
@@ -76,7 +77,7 @@ def compare_frm_arrays(base_arr, comp_arr, brief):
                 prev_match_ind = -1
             log = '{:s}\t{:s} - NOT matched'.format(dur_format(i), frm)
         if (i + 1) % Const.FPS == 0:
-            result[i//Const.FPS] = match_in_sec * 100 // Const.FPS
+            result.append(match_in_sec * 100 // Const.FPS)
             match_in_sec = 0
         if brief and pbar is not None:
             pbar.update(1)
@@ -91,9 +92,10 @@ def divide_on_blocks(comp_result):
     res = {}
     blocks_limits = list()
     mismatched_sec_counter = 0
+    matched_sec_counter = 0
     new_block = True
     cur_block_matched = None
-    for sec, match_amount in comp_result.items():
+    for sec, match_amount in enumerate(comp_result):
         cur_sec_matched = match_amount > Const.BLOCK_PASS_CRITERION
         if new_block:
             block_begin = sec
@@ -102,13 +104,18 @@ def divide_on_blocks(comp_result):
         else:
             if cur_sec_matched != cur_block_matched:
                 mismatched_sec_counter += 1
+
             else:
+                matched_sec_counter += 1
                 mismatched_sec_counter = 0
-        if mismatched_sec_counter > Const.MIN_BLOCK_DUR:
+        if mismatched_sec_counter > Const.MIN_BLOCK_DUR and matched_sec_counter > Const.MIN_BLOCK_DUR:
             blocks_limits.append(sec - mismatched_sec_counter)
             new_block = True
             mismatched_sec_counter = 0
-    blocks = get_blocks(blocks_limits, len(comp_result))
+        elif mismatched_sec_counter > Const.MIN_BLOCK_DUR: #
+            cur_block_matched = not cur_block_matched
+            mismatched_sec_counter = 0
+    return get_blocks(blocks_limits, len(comp_result))
 
 
 def base_algorithm(base_fpath, comp_fpath):
@@ -116,14 +123,14 @@ def base_algorithm(base_fpath, comp_fpath):
     base_data = read_json(base_fpath)
     comp_data = read_json(comp_fpath)
     cmp_res, res_title = compare_episodes(base_data, comp_data, True)
-    smoothed_arr = np.convolve(list(cmp_res.values()), np.ones(4)/4, mode='full')
-    smoothed_res = dict(zip(list(cmp_res.keys()), smoothed_arr))
-    build_plot(smoothed_res, title=res_title, do_block=True)
-    # divide_on_blocks(cmp_res)
+    build_plot(cmp_res, title=res_title, do_block=False, smooth_fact=6)
+    blocks_source = divide_on_blocks(cmp_res)
+    smoothed_res = list(smooth_data(cmp_res, 6))
+    blocks_smoothed = divide_on_blocks(smoothed_res[0:len(cmp_res)])
 
 
-base_file_path = Const.INPUT_DIR + "Game_of_Thrones_S07E03.json"
-comp_file_path = Const.INPUT_DIR + "Game_of_Thrones_S07E02.json"
+base_file_path = Const.INPUT_DIR + "Game_of_Thrones_S07E02.json"
+comp_file_path = Const.INPUT_DIR + "Game_of_Thrones_S07E01.json"
 base_algorithm(base_file_path, comp_file_path)
 
 

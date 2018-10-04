@@ -1,4 +1,5 @@
 import json
+import numpy as np
 from datetime import timedelta
 from termcolor import colored
 
@@ -54,6 +55,7 @@ def sec2time_format(x):
 
 def get_blocks(limits, last_pos):
     res = list()
+    print('Recognized blocks:')
     for i in range(len(limits) + 1):
         begin = limits[i-1] if i != 0 else 0
         end = limits[i] if i != len(limits) else last_pos
@@ -61,3 +63,8 @@ def get_blocks(limits, last_pos):
         block = Block(begin, end)
         res.append(block)
     return res
+
+
+def smooth_data(data_arr, win_size):
+    window = np.ones(int(win_size))/float(win_size)
+    return np.convolve(data_arr, window, mode='full')

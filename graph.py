@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib import ticker
 import numpy as np
 from const import Const
+from helper import smooth_data
 
 
 def format_time(x, pos):
@@ -32,7 +33,7 @@ def format_ax(ax, start, end):
     y_axis.set_major_formatter(ticker.PercentFormatter())
 
 
-def build_plot(data, parts_num=5, title='', do_block=True):
+def build_plot(data, parts_num=5, title='', do_block=True, smooth_fact=4):
 
     def add_titlebox(ax, text):
         ax.text(.55, .8, text,
@@ -48,13 +49,16 @@ def build_plot(data, parts_num=5, title='', do_block=True):
     fig.suptitle(title)
     my_axes = ax.flatten()
     i = 0
+    smoothed_data = smooth_data(data, smooth_fact)
     for cur_axe in my_axes:
         start = i * splt_dur
         end = (i + 1) * splt_dur if (i + 1) * splt_dur <= len(data) else len(data)
         add_titlebox(cur_axe, 'Start frame:{:d}, end frame:{:d}'.format(start * Const.FPS, end * Const.FPS))
         cur_dur_range = range(start, end)
-        cur_graph_range = [data[k] for k in cur_dur_range]
-        cur_axe.plot(np.arange(start, end, 1), cur_graph_range, 'o-', linewidth=1, markersize=1)
+        # cur_graph_range = [data[k] for k in cur_dur_range]
+        # cur_axe.plot(cur_dur_range, smooth_data(data[start:end]), 'o-', linewidth=1, markersize=1)
+        cur_axe.plot(cur_dur_range, data[start:end], 'o-', linewidth=1, markersize=1)
+        cur_axe.plot(cur_dur_range, smoothed_data[start:end], 'o-', linewidth=1, markersize=1)
         format_ax(cur_axe, start, end)
         if end == len(data):
             break
