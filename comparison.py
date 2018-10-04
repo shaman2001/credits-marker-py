@@ -116,9 +116,10 @@ def base_algorithm(base_fpath, comp_fpath):
     base_data = read_json(base_fpath)
     comp_data = read_json(comp_fpath)
     cmp_res, res_title = compare_episodes(base_data, comp_data, True)
-    # smoothed_res = np.convolve(cmp_res.values(), np.ones(10)/10)
-    build_plot(cmp_res, title=res_title, do_block=True)
-    divide_on_blocks(cmp_res)
+    smoothed_arr = np.convolve(list(cmp_res.values()), np.ones(4)/4, mode='full')
+    smoothed_res = dict(zip(list(cmp_res.keys()), smoothed_arr))
+    build_plot(smoothed_res, title=res_title, do_block=True)
+    # divide_on_blocks(cmp_res)
 
 
 base_file_path = Const.INPUT_DIR + "Game_of_Thrones_S07E03.json"
