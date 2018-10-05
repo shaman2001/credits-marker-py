@@ -67,4 +67,8 @@ def get_blocks(limits, last_pos):
 
 def smooth_data(data_arr, win_size):
     window = np.ones(int(win_size))/float(win_size)
-    return np.convolve(data_arr, window, mode='full')
+    return list(np.convolve(data_arr, window, mode='same'))[0:len(data_arr)]
+
+
+def smooth_peaks(data_arr, win_size=1):
+    return [sum(data_arr[i - win_size:i + win_size])/(2*win_size+1) for i in range(len(data_arr))]

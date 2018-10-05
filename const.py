@@ -16,10 +16,10 @@ class MetaConst(object, metaclass=MetaConstType):
 
 class Const(MetaConst):
     INPUT_DIR = 'input/'
-    FPS = 25
-    SEEK_FACTOR = 6
-    MISMATCH_LIMIT = 5
-    PART_MATCH_LIMIT = 25
-    PART_MATCH_RANGE = range(5, 9)
-    BLOCK_PASS_CRITERION = 30
-    MIN_BLOCK_DUR = 5
+    FPS = 25  # frame frequency, frames per second
+    SEEK_FACTOR = 6  # range (back & forward) in fractions of the total length to seek the matched frame
+    MISMATCH_LIMIT = 5  # mismatched frames in a row limit to stop show the difference
+    PART_MATCH_LIMIT = 25  # mismatched frames in a row limit to stop consider as almost matched
+    PART_MATCH_RANGE = range(5, 9)  # matched symbols
+    BLOCK_PASS_CRITERION = 30  # %
+    MIN_BLOCK_DUR = 5  # minimal duration of one block to recognize, sec

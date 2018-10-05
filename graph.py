@@ -43,26 +43,26 @@ def build_plot(data, parts_num=5, title='', do_block=True, smooth_fact=4):
                 fontsize=6)
         return ax
     from math import ceil
-    splt_dur = ceil(len(data)/parts_num)
+    splt_dur = ceil(len(data[0])/parts_num)
     plt.interactive(True)
     fig, ax = plt.subplots(nrows=parts_num, ncols=1, figsize=(15, 8))
     fig.suptitle(title)
     my_axes = ax.flatten()
     i = 0
-    smoothed_data = smooth_data(data, smooth_fact)
-    for cur_axe in my_axes:
+    # smoothed_data = smooth_data(data, smooth_fact)
+    for i, cur_axe in enumerate(my_axes):
         start = i * splt_dur
-        end = (i + 1) * splt_dur if (i + 1) * splt_dur <= len(data) else len(data)
+        end = (i + 1) * splt_dur if (i + 1) * splt_dur <= len(data[0]) else len(data[0])
         add_titlebox(cur_axe, 'Start frame:{:d}, end frame:{:d}'.format(start * Const.FPS, end * Const.FPS))
         cur_dur_range = range(start, end)
         # cur_graph_range = [data[k] for k in cur_dur_range]
         # cur_axe.plot(cur_dur_range, smooth_data(data[start:end]), 'o-', linewidth=1, markersize=1)
-        cur_axe.plot(cur_dur_range, data[start:end], 'o-', linewidth=1, markersize=1)
-        cur_axe.plot(cur_dur_range, smoothed_data[start:end], 'o-', linewidth=1, markersize=1)
+        for arr in data:
+            cur_axe.plot(cur_dur_range, arr[start:end], 'o-', linewidth=1, markersize=1)
         format_ax(cur_axe, start, end)
-        if end == len(data):
-            break
-        i += 1
+        # if end == len(data):
+        #     break
+        # i += 1
     fig.tight_layout()
     plt.show(block=do_block)
     fig.savefig('output/comparison_result.png')
